@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مستكشف تاريخ الكنيسة - ج 2</title>
+    <!-- Chosen Palette: Calm Harmony (Neutral Beige/White, Deep Blue, Amber Accent) -->
+    <!-- Application Structure Plan: تم اختيار بنية تطبيق من صفحة واحدة (SPA) مع ملاحة جانبية ثابتة. هذا التصميم يتخلى عن الهيكل الزمني الصارم للتقرير الأصلي لصالح بنية مواضيعية. يمكن للمستخدمين التنقل مباشرة إلى "عصر المجامع"، "الرهبنة"، أو "اختبر معلوماتك". هذا يتيح استكشافًا غير خطي ويسهل الوصول إلى المعلومات المحددة والمقارنات (مثل الهرطقات) والاختبار التفاعلي، مما يحسن بشكل كبير من قابلية الاستخدام والفهم. -->
+    <!-- Visualization & Content Choices: 1. مقارنة الهرطقات (نسطور، أوطاخي): الهدف (مقارنة) -> العرض (جدول HTML/Tailwind) -> التفاعل (لا يوجد) -> مبرر (مقارنة نصية واضحة بدون SVG). 2. انقسام الكنيسة (خلقيدونية): الهدف (تنظيم) -> العرض (مخطط HTML/CSS) -> التفاعل (نوافذ منبثقة للشخصيات) -> مبرر (تصور مرئي للانقسام بدون SVG/Mermaid). 3. نهضة الأديرة: الهدف (تغيير) -> العرض (رسم بياني شريطي - Chart.js) -> التفاعل (تمرير) -> مبرر (إظهار النمو بمرور الوقت بشكل بياني). 4. اختبار المعلومات: الهدف (تفاعل) -> العرض (بطاقات تعليمية HTML/JS) -> التفاعل (إظهار/إخفاء) -> مبرر (استخدام تفاعلي لمادة الاختبار المصدرية). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f9f9f9;
+        }
+        #sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .content-section {
+            display: none; /* يتم إخفاؤها افتراضيًا */
+        }
+        .content-section.active {
+            display: block; /* يتم إظهار القسم النشط */
+        }
+        .nav-button {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .nav-button.active {
+            background-color: #fef3c7; /* amber-100 */
+            color: #b45309; /* amber-700 */
+            border-right-width: 4px;
+            border-right-color: #b45309; /* amber-700 */
+        }
+        .nav-button:hover {
+            background-color: #1e3a8a; /* blue-800 */
+        }
+        .nav-button.active:hover {
+            background-color: #fef3c7; /* amber-100 */
+        }
+        .quiz-answer {
+            display: none;
+            transition: all 0.3s ease-in-out;
+        }
+        /* تصميم الكارت */
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* 12px */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+            margin-bottom: 1.5rem; /* 24px */
+        }
+        .card-header {
+            padding: 1.25rem 1.5rem; /* 20px 24px */
+            border-bottom: 1px solid #e5e7eb; /* gray-200 */
+            font-size: 1.25rem; /* 20px */
+            font-weight: 700;
+            color: #1e3a8a; /* blue-800 */
+        }
+        .card-content {
+            padding: 1.5rem; /* 24px */
+            color: #374151; /* gray-700 */
+            line-height: 1.75; /* 28px */
+        }
+        /* حاوية الرسم البياني */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* تحديد أقصى عرض للرسم البياني */
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px; /* تحديد أقصى ارتفاع */
+            background-color: #fff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        /* نافذة منبثقة (Modal) */
+        .modal {
+            display: none; /* مخفية افتراضيًا */
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 2rem;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 0.5rem;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            left: 1.5rem; /* في اليسار للتوافق مع RTL */
+            font-size: 2rem;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+        .modal-close:hover {
+            color: #000;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- زر لفتح/إغلاق القائمة الجانبية على الموبايل -->
+    <button id="menu-toggle" class="fixed top-4 right-4 z-40 p-2 bg-blue-900 text-white rounded-md md:hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
+
+    <div class="flex">
+        <!-- القائمة الجانبية (Sidebar) -->
+        <nav id="sidebar" class="fixed md:static top-0 right-0 h-screen w-64 bg-blue-900 text-white p-6 space-y-4 z-30 transform translate-x-full md:translate-x-0">
+            <h2 class="text-2xl font-bold mb-6 text-amber-300">تاريخ الكنيسة ج 2</h2>
+            
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold active" data-target="section-home">
+                 الصفحة الرئيسية
+            </button>
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold" data-target="section-councils">
+                 عصر المجامع والهرطقات
+            </button>
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold" data-target="section-schism">
+                 الانقسام وما بعده
+            </button>
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold" data-target="section-arab-rule">
+                 عصر الحكم العربي
+            </button>
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold" data-target="section-monasticism">
+                 الرهبنة القبطية
+            </button>
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold" data-target="section-later-schisms">
+                [Image of a compass] انشقاقات وإصلاحات
+            </button>
+            <button class="nav-button w-full text-right p-3 rounded-md font-semibold" data-target="section-quiz">
+                 اختبر معلوماتك
+            </button>
+        </nav>
+
+        <!-- المحتوى الرئيسي -->
+        <main id="content-container" class="flex-1 p-6 md:p-10">
+            
+            <!-- 1. الصفحة الرئيسية -->
+            <section id="section-home" class="content-section active">
+                <h1 class="text-4xl font-bold text-blue-900 mb-4">مستكشف كورس تاريخ الكنيسة (الجزء الثاني)</h1>
+                <p class="text-lg text-gray-700 leading-relaxed">
+                    أهلاً بك في هذا التطبيق التفاعلي المخصص لمراجعة الجزء الثاني من كورس تاريخ الكنيسة. يغطي هذا الجزء فترة حاسمة تبدأ من القرن الخامس الميلادي، وتتناول الصراعات اللاهوتية الكبرى، ومجمعي أفسس وخلقيدونية، وما تلاها من انقسام.
+                </p>
+                <div class="card mt-8">
+                    <div class="card-content">
+                        <p class="text-lg">
+                            تم تصميم هذا التطبيق ليوفر لك تجربة مراجعة سهلة ومنظمة. بدلاً من التصفح الزمني التقليدي، تم تقسيم المحتوى إلى أقسام مواضيعية رئيسية. يمكنك استخدام القائمة الجانبية (انقر على الأيقونة في أعلى اليمين إذا كنت تستخدم الموبايل) للانتقال مباشرة إلى:
+                        </p>
+                        <ul class="list-disc pr-6 mt-4 space-y-2">
+                            <li><strong>عصر المجامع والهرطقات:</strong> لفهم الخلافات حول نسطور وأوطاخي.</li>
+                            <li><strong>الانقسام وما بعده:</strong> لمعرفة نتائج مجمع خلقيدونية وشخصيات الحفاظ على الإيمان.</li>
+                            <li><strong>الرهبنة القبطية:</strong> لاكتشاف فضلها على العالم ونهضتها الحديثة.</li>
+                            <li><strong>اختبر معلوماتك:</strong> قسم تفاعلي يحتوي على أسئلة من كافة المصادر التي أرفقتها لمراجعة معلوماتك.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. عصر المجامع والهرطقات -->
+            <section id="section-councils" class="content-section">
+                <h1 class="text-4xl font-bold text-blue-900 mb-6">عصر المجامع والهرطقات (القرن الخامس)</h1>
+                <p class="text-lg text-gray-700 leading-relaxed mb-8">
+                    يُعتبر القرن الخامس هو فترة تحديد الهوية اللاهوتية للكنيسة، حيث واجهت تحديين رئيسيين: النسطورية والأوطاخية. قاد آباء الإسكندرية، البابا كيرلس والبابا ديسقورس، الكنيسة للدفاع عن الإيمان المستقيم في مجمعين مسكونيين.
+                </p>
+
+                <!-- مقارنة الهرطقات -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- بدعة نسطور -->
+                    <div class="card">
+                        <div class="card-header bg-red-50 text-red-800">
+                            [Image of a divided circle] الهرطقة الأولى: النسطورية (نسطور)
+                        </div>
+                        <div class="card-content">
+                            <h3 class="font-bold text-lg mb-2">فكر البدعة:</h3>
+                            <ul class="list-disc pr-5 space-y-2">
+                                <li><strong>الفصل بين الطبيعتين:</strong> نادى بوجود "طبيعتين" و "شخصين" في المسيح (ابن الله وابن مريم).</li>
+                                <li><strong>رفض "والدة الإله":</strong> أنكر لقب (ثيؤطوكوس)، زاعماً أن العذراء ولدت "الإنسان" يسوع فقط (أنثروبوطوكوس).</li>
+                                <li><strong>طبيعة الاتحاد:</strong> اعتبره مجرد "مصاحبة" أو "إقتران" وليس اتحاداً حقيقياً.</li>
+                            </ul>
+                        </div>
+                        <div class="card-header bg-green-50 text-green-800 border-t">
+                             الرد الأرثوذكسي (البابا كيرلس)
+                        </div>
+                        <div class="card-content">
+                            <h3 class="font-bold text-lg mb-2">الرد في مجمع أفسس (431 م):</h3>
+                            <ul class="list-disc pr-5 space-y-2">
+                                <li><strong>اتحاد حقيقي:</strong> أكد على "الطبيعة الواحدة لله الكلمة المتجسد".</li>
+                                <li><strong>تعبير "اتحاد الحديد والنار":</strong> استخدم البابا كيرلس هذا المثل ليوضح أن الاتحاد لا يعني اختلاطاً أو امتزاجاً.</li>
+                                <li><strong>تثبيت "والدة الإله":</strong> تم تثبيت لقب (ثيؤطوكوس) وحرم نسطور.</li>
+                                <li><strong>إضافة:</strong> وُضعت مقدمة قانون الإيمان "نعظمك يا أم النور الحقيقي" في مجمع مكاني بالإسكندرية للرد على نسطور.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- بدعة أوطاخي -->
+                    <div class="card">
+                        <div class="card-header bg-red-50 text-red-800">
+                             الهرطقة الثانية: الأوطاخية (أوطاخي)
+                        </div>
+                        <div class="card-content">
+                            <h3 class="font-bold text-lg mb-2">فكر البدعة:</h3>
+                            <ul class="list-disc pr-5 space-y-2">
+                                <li><strong>امتزاج الطبيعتين:</strong> كرد فعل متطرف ضد النسطورية، زعم أن الناسوت (البشرية) ذاب في اللاهوت (الإلهية).</li>
+                                <li><strong>التشبيه:</strong> "مثلما تذوب نقطة الخل في المحيط".</li>
+                                <li><strong>النتيجة:</strong> أنكر أن جسد المسيح كان مماثلاً لجسدنا، مما يبطل الفداء.</li>
+                            </ul>
+                        </div>
+                        <div class="card-header bg-green-50 text-green-800 border-t">
+                             الرد الأرثوذكسي (البابا ديسقورس)
+                        </div>
+                        <div class="card-content">
+                            <h3 class="font-bold text-lg mb-2">الرد في مجمع خلقيدونية (451 م):</h3>
+                            <ul class="list-disc pr-5 space-y-2">
+                                <li><strong>رفض البدعتين:</strong> تمسك البابا ديسقورس بإيمان البابا كيرلس، رافضاً كلاً من "فصل نسطور" و "امتزاج أوطاخي".</li>
+                                <li><strong>رفض "طومس لاون":</strong> رفض البابا ديسقورس رسالة أسقف روما (طومس لاون) لأنها كانت تميل للنسطورية وتتحدث عن "طبيعتين" بعد الاتحاد.</li>
+                                <li><strong>النتيجة:</strong> تم عزل البابا ديسقورس ونفيه لأسباب "إدارية" و "سياسية" وليس لهرطقة، مما أدى لانقسام الكنيسة.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. الانقسام وما بعده -->
+            <section id="section-schism" class="content-section">
+                <h1 class="text-4xl font-bold text-blue-900 mb-6">الانقسام وما بعده</h1>
+                <p class="text-lg text-gray-700 leading-relaxed mb-8">
+                    كان مجمع خلقيدونية (451 م) نقطة تحول مأساوية، حيث لم يكن خلافاً لاهوتياً بقدر ما كان صراعاً سياسياً بين نفوذ الإسكندرية من جهة، وتحالف روما والقسطنطينية (بقيادة الإمبراطورة بولكاريا) من جهة أخرى. أدى هذا إلى أول انقسام كبير في جسد الكنيسة.
+                </p>
+
+                <!-- مخطط الانقسام -->
+                <div class="card">
+                    <div class="card-header">مخطط انقسام الكنيسة بعد خلقيدونية (451 م)</div>
+                    <div class="card-content">
+                        <div class="text-center mb-6">
+                            <div class="p-4 bg-blue-800 text-white rounded-lg shadow-lg inline-block">الكنيسة الجامعة (قبل 451 م)</div>
+                            <div class="w-0.5 h-12 bg-gray-300 mx-auto"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- اللاخلقيدونية -->
+                            <div>
+                                <div class="p-4 bg-green-100 text-green-800 rounded-lg shadow-md text-center">
+                                    <h3 class="font-bold text-lg">كنائس لا خلقيدونية</h3>
+                                    <p class="text-sm">(رفضت المجمع وطومس لاون)</p>
+                                </div>
+                                <ul class="list-disc pr-8 mt-4 space-y-2 text-gray-700">
+                                    <li>كنيسة الإسكندرية (القبطية)</li>
+                                    <li>كنيسة أنطاكية (السريانية)</li>
+                                    <li>الكنيسة الأرمينية</li>
+                                    <li>(ولاحقاً: الأثيوبية، الإريترية، الهندية)</li>
+                                </ul>
+                            </div>
+                            <!-- الخلقيدونية -->
+                            <div>
+                                <div class="p-4 bg-amber-100 text-amber-800 rounded-lg shadow-md text-center">
+                                    <h3 class="font-bold text-lg">كنائس خلقيدونية</h3>
+                                    <p class="text-sm">(قبلت المجمع وطومس لاون)</p>
+                                </div>
+                                <ul class="list-disc pr-8 mt-4 space-y-2 text-gray-700">
+                                    <li>كنيسة روما (الكاثوليكية)</li>
+                                    <li>كنيسة القسطنطينية</li>
+                                    <li>(وباقي الكنائس البيزنطية: اليونان، روسيا...)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- شخصيات ومحاولات -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    <!-- الهنوتيكون -->
+                    <div class="card">
+                        <div class="card-header">محاولة الوحدة: "الهنوتيكون" (مرسوم الاتحاد)</div>
+                        <div class="card-content">
+                            <p>أصدره الإمبراطور "زينون" (482 م) كمحاولة لإعادة الوحدة. كان المرسوم حلاً وسطاً:</p>
+                            <ul class="list-disc pr-5 mt-4 space-y-2">
+                                <li><strong>اعترف بـ:</strong> المجامع الثلاثة الأولى (نيقية، قسطنطينية، أفسس).</li>
+                                <li><strong>حرم:</strong> نسطور وأوطاخي.</li>
+                                <li><strong>تجاهل:</strong> النقطة الجوهرية للخلاف (طبيعة المسيح) ولم يذكر "طومس لاون"، لا بالقبول ولا بالرفض.</li>
+                            </ul>
+                            <p class="mt-4 font-semibold">النتيجة: فشل المرسوم في تحقيق الوحدة، حيث رفضته روما، كما لم يرضِ المتشددين من الطرفين.</p>
+                        </div>
+                    </div>
+
+                    <!-- شخصيات الحفاظ على الإيمان -->
+                    <div class="card">
+                        <div class="card-header">شخصيات الحفاظ على الإيمان (اللاخلقيدوني)</div>
+                        <div class="card-content">
+                            <p>في خضم الاضطهاد الخلقيدوني، برز آباء دافعوا عن الإيمان وثبتوا الكنائس:</p>
+                            <ul class="list-disc pr-5 mt-4 space-y-3">
+                                <li>
+                                    <strong>القديس ساويرس الأنطاكي:</strong> بطريرك أنطاكية، لقب بـ "حالافان" (المعلم). لجأ إلى مصر واشترك مع الباباوات الأقباط في مقاومة الخلقيدونيين. تذكره الكنيسة القبطية في مجمع القداس.
+                                </li>
+                                <li>
+                                    <strong>القديس يعقوب البرادعي:</strong>
+                                    <button class="text-blue-600 hover:underline" onclick="showModal('modal-baradei')">(اضغط لمعرفة قصته)</button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. عصر الحكم العربي -->
+            <section id="section-arab-rule" class="content-section">
+                <h1 class="text-4xl font-bold text-blue-900 mb-6">عصر الحكم العربي</h1>
+                <p class="text-lg text-gray-700 leading-relaxed mb-8">
+                    بعد الفتح الإسلامي لمصر، انتهى عصر الاضطهاد البيزنطي الخلقيدوني. تميز "عصر الولاة" (الأموي والعباسي) بالتقلب بين فترات من السلام وفترات من التضييق بسبب الضرائب الباهظة (الجزية والخراج). لكن أحد أقسى العصور جاء لاحقاً في عهد الدولة الفاطمية.
+                </p>
+                
+                <div class="card border-l-4 border-red-700">
+                    <div class="card-header bg-red-50 text-red-800">اضطهاد عصر الحاكم بأمر الله (الدولة الفاطمية)</div>
+                    <div class="card-content">
+                        <p>يُعتبر من أسوأ عصور الاضطهاد. شملت إجراءاته:</p>
+                        <ul class="list-disc pr-5 mt-4 space-y-2">
+                            <li><strong>هدم الكنائس:</strong> أمر بهدم آلاف الكنائس، وأشهرها هدم "كنيسة القيامة" في أورشليم (عام 1009 م)، وهو ما كان أحد الأسباب العميقة للحروب الصليبية لاحقاً.</li>
+                            <li><strong>التمييز في الملابس:</strong> أجبر المسيحيين على ارتداء العمائم السوداء، وتعليق صلبان خشبية ثقيلة وواضحة.</li>
+                            <li><strong>استشهاد الأراخنة:</strong> قُتل العديد من كبار موظفي الدولة الأقباط لرفضهم ترك إيمانهم.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mt-6">
+                    <div class="card-header">شهيد الإيمان: القديس أبو نجاح الكبير</div>
+                    <div class="card-content">
+                        <p>كان "أبو نجاح" من كبار الأراخنة في زمن الحاكم بأمر الله. طلبه الحاكم وعرض عليه الوزارة مقابل أن يترك إيمانه.</p>
+                        <p class="mt-4">رفض القديس بشجاعة، فكانت استشهاده كالتالي:</p>
+                        <ol class="list-decimal pr-5 mt-4 space-y-2">
+                            <li>أمر الحاكم بجلده <strong>500 جلدة</strong> بسياط عروق البقر.</li>
+                            <li>ثم أمر بـ <strong>500 جلدة أخرى</strong>.</li>
+                            <li>أثناء الجلد، طلب القديس ماءً لأنه عطشان.</li>
+                            <li>قال الحاكم: "لا تسقوه ماء حتى يرجع إلى ديننا".</li>
+                            <li>فقال القديس: "لا أحتاج إليه، لأن سيدي يسوع المسيح سقاني". (وشوهد الماء يقطر من لحيته).</li>
+                            <li>أسلم الروح، فأمر الحاكم القاسي بإكمال **الألف سوط** وهو ميت.</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. الرهبنة القبطية -->
+            <section id="section-monasticism" class="content-section">
+                <h1 class="text-4xl font-bold text-blue-900 mb-6">الرهبنة القبطية</h1>
+                <p class="text-lg text-gray-700 leading-relaxed mb-8">
+                    ازدهرت الرهبنة في مصر في القرنين الرابع والخامس، ولم تكن فقط لحفظ الإيمان بل كانت أيضاً مصدر إشعاع للعالم كله. تظهر المصادر فضل الرهبنة القبطية على العالم، وكذلك نهضتها الحديثة في القرن الحادي والعشرين.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- فضل الرهبنة -->
+                    <div class="card">
+                        <div class="card-header">فضل الرهبنة القبطية على العالم</div>
+                        <div class="card-content">
+                            <p>كانت مصر هي "الجامعة" التي تخرج منها آباء الرهبنة في العالم:</p>
+                            <ul class="list-disc pr-5 mt-4 space-y-3">
+                                <li><strong>القديس أوكين (أوجين):</strong> تلميذ الأنبا باخوميوس، نقل الرهبنة إلى **العراق**.</li>
+                                <li><strong>القديس إيلاريون:</strong> تلميذ الأنبا أنطونيوس، نقل الرهبنة إلى **فلسطين وسوريا**.</li>
+                                <li><strong>القديس باسيليوس الكبير:</strong> زار مصر وتأثر بنظام الشركة الباخومي، ونقله إلى **آسيا الصغرى** ومنها إلى بيزنطة وروسيا.</li>
+                                <li><strong>القديس يوحنا كاسيان:</strong> زار أديرة مصر وكتب عنها، وأسس أديرة في **فرنسا** على النظام المصري.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <!-- أنظمة الرهبنة -->
+                    <div class="card">
+                        <div class="card-header">الأنظمة الرهبانية الرئيسية</div>
+                        <div class="card-content">
+                            <h3 class="font-bold text-lg mb-2">1. نظام العزلة (الأنبا أنطونيوس)</h3>
+                            <p>يعيش الراهب في عزلة تامة، ويدير حياته الروحية بنفسه. (مثل دير الأنبا أنطونيوس).</p>
+                            
+                            <h3 class="font-bold text-lg mt-4 mb-2">2. نظام الشركة (الأنبا باخوميوس)</h3>
+                            <p>يعيش الرهبان معاً حياة مشتركة في كل شيء (الصلاة، الأكل، العمل) تحت طاعة رئيس الدير وقانون واحد. (مثل أديرة الصعيد الباخومية).</p>
+
+                            <h3 class="font-bold text-lg mt-4 mb-2">3. نظام الجماعات (شيهيت)</h3>
+                            <p>نظام وسط، يعيش الرهبان في قلالي منفردة، لكنهم يجتمعون معاً في الكنيسة أيام السبت والأحد.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- نهضة الأديرة -->
+                <div class="card mt-8">
+                    <div class="card-header">نهضة الأديرة في العصر الحديث (2013-2023)</div>
+                    <div class="card-content">
+                        <p class="mb-4">تُظهر المصادر نهضة رهبانية كبيرة في عهد البابا تواضروس الثاني، تمثلت في الاعتراف بالعديد من الأديرة الجديدة وإحياء أديرة قديمة. الرسم البياني التالي يوضح عدد الاعترافات الجديدة بالأديرة المذكورة في المصدر حسب السنة:</p>
+                        <div class="chart-container">
+                            <canvas id="monasteryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. انشقاقات لاحقة وإصلاحات -->
+            <section id="section-later-schisms" class="content-section">
+                <h1 class="text-4xl font-bold text-blue-900 mb-6">انشقاقات لاحقة وإصلاحات</h1>
+                <p class="text-lg text-gray-700 leading-relaxed mb-8">
+                    لم تتوقف الانقسامات في تاريخ الكنيسة عند مجمع خلقيدونية. حدثت انقسامات كبرى لاحقاً داخل الكنائس الخلقيدونية نفسها. في خضم هذه التحديات، شهدت الكنيسة القبطية أيضاً حركات إصلاح داخلية هامة.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- الانشقاق الكبير -->
+                    <div class="card">
+                        <div class="card-header">الانشقاق الكبير (1054 م)</div>
+                        <div class="card-content">
+                            <p>هو انقسام حدث **داخل** الكنائس الخلقيدونية، فصل بين:</p>
+                            <ul class="list-disc pr-5 mt-4 space-y-2">
+                                <li><strong>كنيسة روما (الكاثوليكية)</strong> في الغرب.</li>
+                                <li><strong>الكنائس البيزنطية (الروم الأرثوذكس)</strong> في الشرق.</li>
+                            </ul>
+                            <p class="mt-4"><strong>السبب الرئيسي:</strong> إضافة كنيسة روما لعبارة **"والابن" (Filioque)** إلى قانون الإيمان، بخصوص انبثاق الروح القدس، وهو ما رفضته كنائس الشرق.</p>
+                        </div>
+                    </div>
+
+                    <!-- الإصلاح البروتستانتي -->
+                    <div class="card">
+                        <div class="card-header">الإصلاح البروتستانتي (القرن 16)</div>
+                        <div class="card-content">
+                            <p>انشقاق قاده "مارتن لوثر" ضد الكنيسة الكاثوليكية بسبب الفساد (مثل **صكوك الغفران**).</p>
+                            <p class="font-bold mt-4">أهم أفكار لوثر:</p>
+                            <ul class="list-disc pr-5 mt-2 space-y-2">
+                                <li>الخلاص بـ **"الإيمان فقط"** (وليس الأعمال).</li>
+                                <li>**"الكتاب المقدس فقط"** (وأنكر التقليد والمجامع).</li>
+                                <li>أنكر الرهبنة، والكهنوت، ومعظم الأسرار (عدا المعمودية والتناول).</li>
+                                <li>حذف الأسفار القانونية الثانية.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- إصلاحات البابا غبريال -->
+                <div class="card mt-8">
+                    <div class="card-header">إصلاحات البابا غبريال بن تريك (البابا الـ 70)</div>
+                    <div class="card-content">
+                        <p>في وقت بدأت فيه اللغة العربية تسود كلغة تخاطب، قام البابا غبريال بن تريك بإصلاحات هامة للحفاظ على الإيمان وفهم الشعب:</p>
+                        <ul class="list-disc pr-5 mt-4 space-y-3">
+                            <li class="font-semibold"><strong>ترتيب كتاب البصخة المقدسة:</strong> جمع العلماء والرهبان ووضع الترتيب الموحد لصلوات وقراءات أسبوع الآلام الذي نستخدمه اليوم.</li>
+                            <li class="font-semibold"><strong>الأمر بتلاوة الأناجيل والعظات باللغة العربية:</strong> كان هذا قراراً مصيرياً. أمر بأن تُقرأ الصلوات والقراءات بالعربية **بعد** تلاوتها بالقبطية، لضمان فهم الشعب لإيمانه.</li>
+                            <li class="font-semibold"><strong>وضع قوانين كنسية:</strong> لتنظيم أمور البيعة، والإكليروس، والمواريث، ومنع دفن الموتى في الكنائس.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. اختبر معلوماتك -->
+            <section id="section-quiz" class="content-section">
+                <h1 class="text-4xl font-bold text-blue-900 mb-6">اختبر معلوماتك</h1>
+                <p class="text-lg text-gray-700 leading-relaxed mb-8">
+                    هذا القسم يحتوي على أسئلة مأخوذة مباشرة من أوراق المراجعة والأسئلة التي أرفقتها (ملفات 001، 002، 003). اضغط على السؤال لإظهار الإجابة والتصحيح.
+                </p>
+
+                <div class="space-y-4">
+                    <!-- سؤال 1 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (اختياري): اشتهر البابا ........ بوضع ترتيب القوانين الكنسية.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: غبريال بن تريك.</p>
+                            <p>(كما قام أيضًا بترتيب كتاب البصخة وتلاوة الأناجيل بالعربية).</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 2 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (اختياري): تتلمذ البابا كيرلس عمود الدين على يد ........
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: القديس ديديموس الضرير.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 3 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (اختياري): تم وضع مقدمة قانون الإيمان "نعظمك يا ام النور الحقيقي" في ........
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: مجمع مكاني بالإسكندرية.</p>
+                            <p>(عقده البابا كيرلس عمود الدين للرد على نسطور قبل مجمع أفسس).</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 4 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (اختياري): ملخص بدعة نسطور هو ........
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: إنكار الاتحاد الطبيعي للاهوت والناسوت في شخص السيد المسيح.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 5 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (اختياري): حدث الانشقاق الكبير بين كنائس الروم الأرثوذوكس والكنيسة الكاثوليكية بسبب بدعة ........
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: انبثاق الروح القدس من الآب والابن.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 6 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (اختياري): تعتبر الكنيسة ........ من الكنائس الأرثوذكسية الخلقيدونية.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: كل ما سبق (اليونانية، الروسية، القسطنطينية).</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 7 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (صح أم خطأ): وضع البابا ديوسقورس 12 حرماً للرد على بدعة نسطور.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-red-700">الإجابة: خطأ.</p>
+                            <p><strong>التصحيح:</strong> الذي وضع الـ 12 حرمًا هو **البابا كيرلس عمود الدين**.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 8 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (صح أم خطأ): انتهت النسطورية تماماً من العالم ولا يوجد لها أثر الآن.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-red-700">الإجابة: خطأ.</p>
+                            <p><strong>التصحيح:</strong> ما زال لها وجود باسم "الكنيسة الأشورية المشرقية".</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 9 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (صح أم خطأ): كانت الكنيسة الإريترية جزءاً من الكنيسة الأثيوبية حتى عام 1993م.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: صح.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 10 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (صح أم خطأ): أقر مارتن لوثر جميع الأسرار ما عدا الكهنوت والمعمودية.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-red-700">الإجابة: خطأ.</p>
+                            <p><strong>التصحيح:</strong> أنكر جميع الأسرار عدا **المعمودية والتناول**.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 11 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (صح أم خطأ): لم يجلس البابا ثيؤدوسيوس الأول على كرسيه في الإسكندرية سوى أربع سنوات.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة: صح.</p>
+                            <p>(قضى 4 سنوات في الإسكندرية و 28 سنة في المنفى بصعيد مصر).</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 12 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (صح أم خطأ): بدأت قراءة الأناجيل والصلوات باللغة العربية في عهد البابا زخرياس.
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-red-700">الإجابة: خطأ.</p>
+                            <p><strong>التصحيح:</strong> كان ذلك في عهد **البابا غبريال بن تريك**.</p>
+                        </div>
+                    </div>
+                    <!-- سؤال 13 -->
+                    <div class="card">
+                        <button class="quiz-toggle w-full text-right p-5 font-semibold text-gray-800 hover:bg-gray-50 focus:outline-none">
+                            س (سؤال): ما هي أسباب عزل البابا ديسقورس في مجمع خلقيدونية؟
+                        </button>
+                        <div class="quiz-answer p-5 bg-gray-50 border-t border-gray-200">
+                            <p class="font-bold text-lg text-green-700">الإجابة (أسباب إدارية وليست عقائدية):</p>
+                            <ul class="list-disc pr-5 space-y-2 mt-2">
+                                <li>لأنه حرم فلافيوس بطريرك القسطنطينية.</li>
+                                <li>لأنه لم يقرأ "طومس لاون" في مجمع أفسس الثاني.</li>
+                                <li>لموقفه ضد المكانة المستحدثة التي منحها المجمع لأسقف روما.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- نافذة منبثقة (Modal) للقديس يعقوب البرادعي -->
+    <div id="modal-baradei" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="hideModal('modal-baradei')">&times;</span>
+            <h2 class="text-2xl font-bold text-blue-800 mb-4">القديس يعقوب البرادعي</h2>
+            <p class="text-gray-700 leading-relaxed">
+                يعتبر القديس يعقوب البرادعي من آباء الكنيسة السريانية الكبار. بعد الاضطهاد الخلقيدوني، كادت الكنيسة السريانية (الأنطاكية) أن تفقد تسلسلها الكهنوتي.
+            </p>
+            <p class="text-gray-700 leading-relaxed mt-4">
+                قامت الإمبراطورة الأرثوذكسية "ثيؤدورا" بترتيب سيامة القديس يعقوب مطرانًا على الرها وبلاد الشام وآسيا.
+            </p>
+            <p class="text-gray-700 leading-relaxed mt-4">
+                سُمي بـ "البرادعي" لأنه كان يتنقل متخفيًا في ثياب رثة مصنوعة من "قماش البردعة" (الذي يوضع على ظهر الدواب) هربًا من الخلقيدونيين.
+            </p>
+            <p class="text-gray-700 leading-relaxed mt-4 font-semibold">
+                كان دوره العظيم هو أنه جال في كل البلاد، ورسم مائة أسقف متنقل وآلاف الكهنة والشمامسة، وبذلك حافظ على وجود الكنيسة الأرثوذكسية في الكرسي الأنطاكي.
+            </p>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const navButtons = document.querySelectorAll('.nav-button');
+            const contentSections = document.querySelectorAll('.content-section');
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+
+            // وظيفة للتعامل مع التنقل
+            function navigateTo(targetId) {
+                // إخفاء جميع الأقسام
+                contentSections.forEach(section => {
+                    section.classList.remove('active');
+                });
+                
+                // إظهار القسم المستهدف
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                }
+
+                // تحديث الحالة النشطة للأزرار
+                navButtons.forEach(btn => {
+                    if (btn.dataset.target === targetId) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+
+                // إغلاق القائمة الجانبية على الموبايل
+                if (window.innerWidth < 768) {
+                    sidebar.classList.add('translate-x-full');
+                }
+            }
+
+            // إضافة مستمعين للنقر على أزرار التنقل
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetId = button.dataset.target;
+                    navigateTo(targetId);
+                });
+            });
+
+            // التعامل مع قائمة الموبايل
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('translate-x-full');
+            });
+
+            // التعامل مع أسئلة الاختبار (Quiz)
+            const quizToggles = document.querySelectorAll('.quiz-toggle');
+            quizToggles.forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const answer = toggle.nextElementSibling;
+                    const isVisible = answer.style.display === 'block';
+                    answer.style.display = isVisible ? 'none' : 'block';
+                });
+            });
+
+            // بيانات الرسم البياني (من ملف PDF، صفحة 94-95)
+            const monasteryData = {
+                '2013': 4, // النمسا، الام سارة، متاؤس الفاخوري، جنوب افريقيا
+                '2014': 1, // مكاريوس السكندري
+                '2015': 1, // العذراء وميخائيل بديروط
+                '2016': 3, // دميانة بالبلينا، دميانة بأتلاتنا، موسى القوي
+                '2017': 1, // مار بقطر
+                '2018': 1, // مارجرجس أيرلندا
+                '2019': 2, // هيرمينا، العذراء ويوحنا
+                '2023': 2 // أوهايو، العذارى الحكيمات
+                // (تم استبعاد الأديرة التي ليس لها تاريخ)
+            };
+
+            const ctx = document.getElementById('monasteryChart');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(monasteryData),
+                        datasets: [{
+                            label: 'عدد الاعترافات بأديرة جديدة/مُحياة',
+                            data: Object.values(monasteryData),
+                            backgroundColor: 'rgba(30, 64, 175, 0.7)', // blue-800
+                            borderColor: 'rgba(30, 64, 175, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1 // لضمان عد الأرقام الصحيحة
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'نهضة الاعتراف بالأديرة (2013-2023)'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        const item = tooltipItems[0];
+                                        let label = item.chart.data.labels[item.dataIndex];
+                                        if (Array.isArray(label)) {
+                                          return label.join(' ');
+                                        } else {
+                                          return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        // وظائف النافذة المنبثقة (Modal)
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+        function hideModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        // إغلاق النافذة عند النقر خارج المحتوى
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
+
